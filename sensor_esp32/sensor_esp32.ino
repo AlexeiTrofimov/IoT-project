@@ -25,15 +25,19 @@ unsigned long timerDelay = 30000;
 float temp;
 float hum;
 
+BLEServer* pServer = NULL;
 bool deviceConnected = false;
+bool oldDeviceConnected = false;
 
 //Setup callbacks onConnect and onDisconnect
 class MyServerCallbacks: public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     deviceConnected = true;
+    Serial.println("Device Connected");
   };
   void onDisconnect(BLEServer* pServer) {
     deviceConnected = false;
+    Serial.println("Device disconnected");
   }
 };
 
@@ -45,7 +49,7 @@ void setup() {
   Serial.println("Starting BLE work!");
 
   BLEDevice::init("Temp/Humidity");
-  BLEServer *pServer = BLEDevice::createServer();
+  pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   
   // Create the BLE Service
@@ -62,9 +66,12 @@ void setup() {
   pService->start();
   // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  
   pAdvertising->addServiceUUID(SERVICE_UUID);
-
-  pServer->getAdvertising()->start();
+  pAdvertising->setScanResponse(false);
+  pAdvertising->setMinPreferred(0x06);  // set value to 0x00 to not advertise this parameter
+  BLEDevice::startAdvertising();
+  
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 
 }
@@ -72,40 +79,50 @@ void setup() {
 void loop() {
 
   if (deviceConnected) {
-    if ((millis() - lastTime) > timerDelay) {
-      // Read temperature
-      temp = dht.readTemperature();
-      
-      // Read humidity
-      hum = dht.readHumidity();
+        // Read temperature
+        temp = dht.readTemperature();
+        
+        // Read humidity
+        hum = dht.readHumidity();
 
-    if (isnan(hum) || isnan(temp)) {
-      Serial.println(F("Failed to read from DHT sensor!"));
-      return;
-    }        
-  
-    //Notify temperature reading from DHT sensor
-    static char temperatureCTemp[6];
-    dtostrf(temp, 6, 2, temperatureCTemp);
-    //Set temperature Characteristic value and notify connected client
-    TemperatureCharacteristics.setValue(temperatureCTemp);
-    TemperatureCharacteristics.notify();
-    Serial.print("Temperature Celsius: ");
-    Serial.print(temp);
-    Serial.print(" ºC");
-    
-    //Notify humidity reading from DHT
-    static char humidityTemp[6];
-    dtostrf(hum, 6, 2, humidityTemp);
-    //Set humidity Characteristic value and notify connected client
-    HumidityCharacteristics.setValue(humidityTemp);
-    HumidityCharacteristics.notify();   
-    Serial.print(" - Humidity: ");
-    Serial.print(hum);
-    Serial.println(" %");
-    
-    lastTime = millis();
-    }
+        if (isnan(hum) || isnan(temp)) {
+          Serial.println(F("Failed to read from DHT sensor!"));
+          return;
+        }        
+      
+        //Notify temperature reading from DHT sensor
+        static char temperatureCTemp[6];
+        dtostrf(temp, 6, 2, temperatureCTemp);
+        //Set temperature Characteristic value and notify connected client
+        TemperatureCharacteristics.setValue(temperatureCTemp);
+        TemperatureCharacteristics.notify();
+        Serial.print("Temperature Celsius: ");
+        Serial.print(temp);
+        Serial.print(" ºC");
+        
+        //Notify humidity reading from DHT
+        static char humidityTemp[6];
+        dtostrf(hum, 6, 2, humidityTemp);
+        //Set humidity Characteristic value and notify connected client
+        HumidityCharacteristics.setValue(humidityTemp);
+        HumidityCharacteristics.notify();
+        Serial.print(" - Humidity: ");
+        Serial.print(hum);
+        Serial.println(" %");
+        delay(5000); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+  }
+
+  // disconnecting
+  if (!deviceConnected && oldDeviceConnected) {
+      delay(500); // give the bluetooth stack the chance to get things ready
+      pServer->startAdvertising(); // restart advertising
+      Serial.println("start advertising");
+      oldDeviceConnected = deviceConnected;
+  }
+  // connecting
+  if (deviceConnected && !oldDeviceConnected) {
+      // do stuff here on connecting
+      oldDeviceConnected = deviceConnected;
   }
 
 }
