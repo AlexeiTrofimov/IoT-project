@@ -91,25 +91,23 @@ void loop() {
         }        
       
         //Notify temperature reading from DHT sensor
-        static char temperatureCTemp[6];
-        dtostrf(temp, 6, 2, temperatureCTemp);
+
         //Set temperature Characteristic value and notify connected client
-        TemperatureCharacteristics.setValue(temperatureCTemp);
+        TemperatureCharacteristics.setValue(temp);
         TemperatureCharacteristics.notify();
         Serial.print("Temperature Celsius: ");
         Serial.print(temp);
         Serial.print(" ºC");
         
         //Notify humidity reading from DHT
-        static char humidityTemp[6];
-        dtostrf(hum, 6, 2, humidityTemp);
+
         //Set humidity Characteristic value and notify connected client
-        HumidityCharacteristics.setValue(humidityTemp);
+        HumidityCharacteristics.setValue(hum);
         HumidityCharacteristics.notify();
         Serial.print(" - Humidity: ");
         Serial.print(hum);
         Serial.println(" %");
-        delay(5000); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
+        delay(10000); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
   }
 
   // disconnecting
@@ -117,7 +115,7 @@ void loop() {
       delay(500); // give the bluetooth stack the chance to get things ready
       pServer->startAdvertising(); // restart advertising
       Serial.println("start advertising");
-      oldDeviceConnected = deviceConnected;
+      oldDeviceConnected = false;
   }
   // connecting
   if (deviceConnected && !oldDeviceConnected) {
